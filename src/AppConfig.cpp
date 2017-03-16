@@ -18,6 +18,7 @@ AppConfig::AppConfig() {
 AppConfig::~AppConfig() {
   free(defaultConfigFile);
   free(internalConfigBuffer);
+  free(storedConfig);
 }
 
 void AppConfig::loadFile() {
