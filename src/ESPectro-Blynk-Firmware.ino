@@ -20,7 +20,7 @@
 #define CONNECTIO_PIN 10
 
 Adafruit_BMP085 bmpSensor;
-Ticker ticker;
+// Ticker ticker;
 Ticker analogReadingTicker;
 WiFiManager manager;
 ESPectro board(ESPectro_V3);
@@ -49,7 +49,8 @@ void onTickerTick() {
 }
 
 void configModeCallback(WiFiManager *wifiManager) {
-  ticker.attach(0.2, onTickerTick);
+  // ticker.attach(0.2, onTickerTick);
+  board.fadeLED(800);
 }
 
 
@@ -110,7 +111,8 @@ void setup() {
   delay(500);
 
   appConfig.saveConfig(WiFi.SSID().c_str(), WiFi.psk().c_str(), blynkTokenParam.getValue());
-  ticker.detach();
+  // ticker.detach();
+  board.stopLEDAnimation();
   board.turnOffLED();
   analogReadingTicker.attach(0.1, onAnalogSensorTriggered);
 
