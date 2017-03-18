@@ -5,6 +5,8 @@
 #include <WiFiManager.h>
 #include <Ticker.h>
 #include <ESPectro.h>
+#include <Wire.h>
+#include <Adafruit_BMP085.h>
 
 #include "AppConfig.h"
 #include "NeoPixelData.h"
@@ -15,12 +17,18 @@
 #define DEFAULT_ACCESSPOINT_NAME "ESPectroCoreWiFi-000"
 #define DEFAULT_ACCESSPOINT_PASS "11223344"
 
+#define CONNECTIO_PIN 10
+
+Adafruit_BMP085 bmpSensor;
 Ticker ticker;
+Ticker analogReadingTicker;
 WiFiManager manager;
 ESPectro board(ESPectro_V3);
 ESPectro_Button button(ESPectro_V3, ESPECTRO_BUTTON_PIN_V3);
 AppConfig appConfig;
 NeoPixelData neoPixelData;
+
+int connectioThreshold = 0;
 
 void setNeopixelColor(uint32_t color) {
   for (int i = 0; i < 3; i++) {
@@ -28,12 +36,20 @@ void setNeopixelColor(uint32_t color) {
   }
 }
 
-void onTimerTick() {
+void onAnalogSensorTriggered() {
+  int reading = analogRead(A0);
+
+  if (reading > connectioThreshold) {
+    digitalWrite(CONNECTIO_PIN, HIGH);
+  }
+}
+
+void onTickerTick() {
   board.toggleLED();
 }
 
 void configModeCallback(WiFiManager *wifiManager) {
-  ticker.attach(0.2, onTimerTick);
+  ticker.attach(0.2, onTickerTick);
 }
 
 
@@ -55,6 +71,11 @@ void setup() {
   button.onLongPressed(onButtonLongPressed);
   button.begin();
 
+  if (!bmpSensor.begin()) {
+    Serial.println("Could not initialize BMP Sensor. Please make sure that you have BMP sensor connected to the I2C pins");
+    while (1) {}
+  }
+
   // Uncomment line below only if you know what you're doing or else this will be your undoing
   // SPIFFS.format();
   appConfig.begin();
@@ -69,6 +90,8 @@ void setup() {
   manager.setBreakAfterConfig(true);
 
   if (appConfig.isNotConfigured()) {
+    manager.resetSettings();
+
     if (!manager.startConfigPortal(DEFAULT_ACCESSPOINT_NAME, DEFAULT_ACCESSPOINT_PASS)) {
       Serial.println("[ERROR] Failed to configure connection");
       delay(500);
@@ -89,6 +112,7 @@ void setup() {
   appConfig.saveConfig(WiFi.SSID().c_str(), WiFi.psk().c_str(), blynkTokenParam.getValue());
   ticker.detach();
   board.turnOffLED();
+  analogReadingTicker.attach(0.1, onAnalogSensorTriggered);
 
   Serial.println("Setup is done...");
   Serial.printf("AP: %s\n", appConfig.getStoredConfig()->ssid);
@@ -135,6 +159,7 @@ BLYNK_WRITE(V1) {
   }
 }
 
+// NeoPixel's green color
 BLYNK_WRITE(V2) {
   int value = param.asInt();
   Serial.printf("Got Green Value: %d\n", value);
@@ -145,6 +170,7 @@ BLYNK_WRITE(V2) {
   }
 }
 
+// NeoPixel's blue color
 BLYNK_WRITE(V3) {
   int value = param.asInt();
   Serial.printf("Got Blue Value: %d\n", value);
@@ -153,4 +179,28 @@ BLYNK_WRITE(V3) {
   if (neoPixelData.getState()) {
     setNeopixelColor(neoPixelData.getColor());
   }
+}
+
+// BMP Sensor Temperature
+BLYNK_READ(V4) {
+  Blynk.virtualWrite(V4, bmpSensor.readTemperature());
+}
+
+// BMP Sensor Pressure
+BLYNK_READ(V5) {
+  Blynk.virtualWrite(V5, bmpSensor.readPressure());
+}
+
+// BMP Sensor Altitude
+BLYNK_READ(V6) {
+  Blynk.virtualWrite(V6, bmpSensor.readAltitude());
+}
+
+// BMP Sensor Sea-level Pressure
+BLYNK_READ(V7) {
+  Blynk.virtualWrite(V7, bmpSensor.readSealevelPressure());
+}
+
+BLYNK_WRITE(V8) {
+  connectioThreshold = param.asInt();
 }
