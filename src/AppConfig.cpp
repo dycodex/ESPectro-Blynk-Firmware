@@ -24,19 +24,13 @@ AppConfig::~AppConfig() {
 void AppConfig::loadFile() {
   const char* filename = defaultConfigFile;
 
-  if (!SPIFFS.exists(filename)) {
-    Serial.println("[ERROR] Config file is not found");
-    return;
-  }
-
-  File configFile = SPIFFS.open(filename, "r");
+  File configFile = SPIFFS.open(filename, "r+");
 
   if (!configFile) {
     Serial.println("[ERROR] Failed to open config file");
     return;
   }
 
-  // while(!configFile.available());
   size_t avail = configFile.available();
 
   if (!avail) {
@@ -54,6 +48,8 @@ void AppConfig::loadFile() {
   Serial.printf("[READ] Blynk token: %s\n", storedConfig->blynkToken);
   Serial.printf("[READ] SSID: %s\n", storedConfig->ssid);
   Serial.printf("[READ] Password: %s\n", storedConfig->password);
+
+  configFile.close();
 }
 
 void AppConfig::begin() {
@@ -62,54 +58,18 @@ void AppConfig::begin() {
     return;
   }
 
-#if APPCONFIG_RESET_WIFI
-  wifiManager.resetSettings();
-  SPIFFS.remove(defaultConfigFile);
-#endif
-
   loadFile();
-
-  WiFiManagerParameter blynkTokenParam("blynk", "Blynk Token", storedConfig->blynkToken, 34);
-  wifiManager.addParameter(&blynkTokenParam);
-  wifiManager.setTimeout(120);
-  wifiManager.setAPCallback(configModeCallback);
-
-#if APPCONFIG_RESET_WIFI == 0
-  if (storedConfig != nullptr && strlen(storedConfig->ssid) > 0 && strlen(storedConfig->password) > 0) {
-    delay(1000);
-    return;
-  }
-#endif
-
-  wifiManager.setBreakAfterConfig(true);
-  if (!wifiManager.autoConnect(DEFAULT_ACCESSPOINT_NAME)) {
-    Serial.println("[ERROR] Failed to set access point and blynk token! Resetting...");
-    delay(500);
-
-    ESP.reset();
-  }
-
-  strcpy(storedConfig->blynkToken, blynkTokenParam.getValue());
-  strcpy(storedConfig->ssid, WiFi.SSID().c_str());
-  strcpy(storedConfig->password, WiFi.psk().c_str());
-
-  Serial.printf("[SAVE] Blynk token: %s\n", storedConfig->blynkToken);
-  Serial.printf("[SAVE] SSID: %s\n", storedConfig->ssid);
-  Serial.printf("[SAVE] Password: %s\n", storedConfig->password);
-
-  delay(1000);
-  saveConfig();
 }
 
-void AppConfig::setConfigFilename(char* filename) {
-  if (filename == nullptr) {
-    return;
-  }
+void AppConfig::saveConfig(const char* ssid, const char* password, const char* blynkToken) {
+  strcpy(storedConfig->ssid, ssid);
+  strcpy(storedConfig->password, password);
+  strcpy(storedConfig->blynkToken, blynkToken);
 
-  defaultConfigFile = filename;
+  save();
 }
 
-void AppConfig::saveConfig() {
+void AppConfig::save() {
   File configFile = SPIFFS.open(defaultConfigFile, "w");
   if (!configFile) {
     Serial.println("[ERROR] AppConfig failed to open config file");
@@ -126,13 +86,23 @@ void AppConfig::saveConfig() {
 }
 
 void AppConfig::reset() {
+  if (SPIFFS.exists(defaultConfigFile)) {
+    SPIFFS.remove(defaultConfigFile);
+  }
 
+  memset(storedConfig->blynkToken, 0, sizeof(storedConfig->blynkToken));
+  memset(storedConfig->ssid, 0, sizeof(storedConfig->ssid));
+  memset(storedConfig->password, 0, sizeof(storedConfig->password));
+
+  save();
 }
 
 config_t* AppConfig::getStoredConfig() {
   return storedConfig;
 }
 
-void AppConfig::setOnEnteredConfigModeCallback(WiFiManagerEnteredConfigCallback callback) {
-  configModeCallback = callback;
+bool AppConfig::isNotConfigured() {
+  return strlen(storedConfig->ssid) < 1
+    && strlen(storedConfig->password) < 1
+    && strlen(storedConfig->blynkToken) < 1;
 }
