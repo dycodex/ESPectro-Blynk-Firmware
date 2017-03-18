@@ -4,8 +4,10 @@
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <Ticker.h>
-#include "AppConfig.h"
 #include <ESPectro.h>
+
+#include "AppConfig.h"
+#include "NeoPixelData.h"
 
 #define BLYNK_PRINT Serial
 #include <BlynkSimpleEsp8266.h>
@@ -18,16 +20,7 @@ WiFiManager manager;
 ESPectro board(ESPectro_V3);
 ESPectro_Button button(ESPectro_V3, ESPECTRO_BUTTON_PIN_V3);
 AppConfig appConfig;
-
-bool isNeoPixelOn = false;
-uint8_t neopixelRed = 0;
-uint8_t neopixelBlue = 0;
-uint8_t neopixelGreen = 0;
-uint32_t neopixelColor = neopixelBlue | neopixelGreen << 8 | neopixelRed << 16;
-
-uint32_t shiftColor(uint8_t red, uint8_t green, uint8_t blue) {
-  return blue | green << 8 | red << 16;
-}
+NeoPixelData neoPixelData;
 
 void setNeopixelColor(uint32_t color) {
   for (int i = 0; i < 3; i++) {
@@ -67,40 +60,46 @@ void setup() {
   appConfig.begin();
 
   manager.setAPCallback(configModeCallback);
+  manager.setConnectTimeout(30);
 
   Serial.println("Initializing...");
+  WiFiManagerParameter blynkTokenParam("blynk", "Blynk Token", appConfig.getStoredConfig()->blynkToken, 34);
+  manager.addParameter(&blynkTokenParam);
+  manager.setTimeout(120);
+  manager.setBreakAfterConfig(true);
 
   if (appConfig.isNotConfigured()) {
-    WiFiManagerParameter blynkTokenParam("blynk", "Blynk Token", appConfig.getStoredConfig()->blynkToken, 34);
-    manager.addParameter(&blynkTokenParam);
-    manager.setTimeout(120);
-    manager.setBreakAfterConfig(true);
-
     if (!manager.startConfigPortal(DEFAULT_ACCESSPOINT_NAME, DEFAULT_ACCESSPOINT_PASS)) {
-      Serial.println("[ERROR] Failed to start config portal.");
+      Serial.println("[ERROR] Failed to configure connection");
       delay(500);
 
       ESP.reset();
     }
+  } else {
+    if (!manager.autoConnect(DEFAULT_ACCESSPOINT_NAME, DEFAULT_ACCESSPOINT_PASS)) {
+      Serial.println("[ERROR] Failed to configure connection");
+      delay(500);
 
-    delay(500);
-    appConfig.saveConfig(WiFi.SSID().c_str(), WiFi.psk().c_str(), blynkTokenParam.getValue());
+      ESP.reset();
+    }
   }
+
+  delay(500);
+
+  appConfig.saveConfig(WiFi.SSID().c_str(), WiFi.psk().c_str(), blynkTokenParam.getValue());
+  ticker.detach();
+  board.turnOffLED();
 
   Serial.println("Setup is done...");
   Serial.printf("AP: %s\n", appConfig.getStoredConfig()->ssid);
   Serial.printf("PSK: %s\n", appConfig.getStoredConfig()->password);
 
-  WiFi.disconnect();
-  ticker.detach();
-  board.turnOffLED();
-
-  Blynk.begin(appConfig.getStoredConfig()->blynkToken,
-    appConfig.getStoredConfig()->ssid,
-    appConfig.getStoredConfig()->password,
+  Blynk.config(appConfig.getStoredConfig()->blynkToken,
     "cloud.makestro.com",
     8442
   );
+
+  Blynk.connect();
 }
 
 void loop() {
@@ -108,31 +107,31 @@ void loop() {
   Blynk.run();
 }
 
-// NeoPixel;s power
+// NeoPixel's power
 BLYNK_WRITE(V0) {
   int value = param.asInt();
   Serial.printf("Got value from V0: %d\n", value);
 
   if (value) {
     for (int i = 0; i < 3; i++) {
-      board.turnOnNeopixel(HtmlColor(neopixelColor), i);
+      board.turnOnNeopixel(HtmlColor(neoPixelData.getColor()), i);
     }
-    isNeoPixelOn = true;
+
+    neoPixelData.setState(value);
   } else {
     board.turnOffAllNeopixel();
-    isNeoPixelOn = false;
+    neoPixelData.setState(value);
   }
 }
 
+// NeoPixel's red color value
 BLYNK_WRITE(V1) {
   int value = param.asInt();
   Serial.printf("Got Red Value: %d\n", value);
 
-  neopixelRed = value;
-  neopixelColor = shiftColor(neopixelRed, neopixelGreen, neopixelBlue);
-
-  if (isNeoPixelOn) {
-    setNeopixelColor(neopixelColor);
+  neoPixelData.setRed(value);
+  if (neoPixelData.getState()) {
+    setNeopixelColor(neoPixelData.getColor());
   }
 }
 
@@ -140,11 +139,9 @@ BLYNK_WRITE(V2) {
   int value = param.asInt();
   Serial.printf("Got Green Value: %d\n", value);
 
-  neopixelGreen = value;
-  neopixelColor = shiftColor(neopixelRed, neopixelGreen, neopixelBlue);
-
-  if (isNeoPixelOn) {
-    setNeopixelColor(neopixelColor);
+  neoPixelData.setGreen(value);
+  if (neoPixelData.getState()) {
+    setNeopixelColor(neoPixelData.getColor());
   }
 }
 
@@ -152,10 +149,8 @@ BLYNK_WRITE(V3) {
   int value = param.asInt();
   Serial.printf("Got Blue Value: %d\n", value);
 
-  neopixelBlue = value;
-  neopixelColor = shiftColor(neopixelRed, neopixelGreen, neopixelBlue);
-
-  if (isNeoPixelOn) {
-    setNeopixelColor(neopixelColor);
+  neoPixelData.setBlue(value);
+  if (neoPixelData.getState()) {
+    setNeopixelColor(neoPixelData.getColor());
   }
 }
