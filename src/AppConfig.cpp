@@ -70,7 +70,7 @@ void AppConfig::saveConfig(const char* ssid, const char* password, const char* b
 }
 
 void AppConfig::save() {
-  File configFile = SPIFFS.open(defaultConfigFile, "w");
+  File configFile = SPIFFS.open(defaultConfigFile, "w+");
   if (!configFile) {
     Serial.println("[ERROR] AppConfig failed to open config file");
     return;
