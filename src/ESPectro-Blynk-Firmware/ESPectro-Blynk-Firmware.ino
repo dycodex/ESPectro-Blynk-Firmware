@@ -18,7 +18,7 @@
 #define DEFAULT_ACCESSPOINT_PASS "12345678"
 
 #define CONNECTIO_PIN 10
-#define USE_BMP 1
+#define USE_BMP true
 
 Adafruit_BMP085 bmpSensor;
 // Ticker ticker;
@@ -40,7 +40,7 @@ void setNeopixelColor(uint32_t color) {
 void onAnalogSensorTriggered() {
   int reading = analogRead(A0);
 
-  if (reading > connectioThreshold) {
+  if (reading < connectioThreshold) {
     digitalWrite(CONNECTIO_PIN, HIGH);
   }
 }
