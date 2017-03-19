@@ -18,6 +18,7 @@
 #define DEFAULT_ACCESSPOINT_PASS "12345678"
 
 #define CONNECTIO_PIN 10
+#define USE_BMP 1
 
 Adafruit_BMP085 bmpSensor;
 // Ticker ticker;
@@ -72,9 +73,11 @@ void setup() {
   button.onLongPressed(onButtonLongPressed);
   button.begin();
 
-  if (!bmpSensor.begin()) {
-    Serial.println("Could not initialize BMP Sensor. Please make sure that you have BMP sensor connected to the I2C pins");
-    while (1) {}
+  if (USE_BMP) {
+    if (!bmpSensor.begin()) {
+      Serial.println("Could not initialize BMP Sensor. Please make sure that you have BMP sensor connected to the I2C pins");
+      while (1) {}
+    }
   }
 
   // Uncomment line below only if you know what you're doing or else this will be your undoing
@@ -185,22 +188,38 @@ BLYNK_WRITE(V3) {
 
 // BMP Sensor Temperature
 BLYNK_READ(V4) {
-  Blynk.virtualWrite(V4, bmpSensor.readTemperature());
+  if (USE_BMP) {
+    Blynk.virtualWrite(V4, bmpSensor.readTemperature());
+  } else {
+    Blynk.virtualWrite(V4, 0);
+  }
 }
 
 // BMP Sensor Pressure
 BLYNK_READ(V5) {
-  Blynk.virtualWrite(V5, bmpSensor.readPressure());
+  if (USE_BMP) {
+    Blynk.virtualWrite(V5, bmpSensor.readPressure());
+  } else {
+    Blynk.virtualWrite(V5, 0);
+  }
 }
 
 // BMP Sensor Altitude
 BLYNK_READ(V6) {
-  Blynk.virtualWrite(V6, bmpSensor.readAltitude());
+  if (USE_BMP) {
+    Blynk.virtualWrite(V6, bmpSensor.readAltitude());
+  } else {
+    Blynk.virtualWrite(V6, 0);
+  }
 }
 
 // BMP Sensor Sea-level Pressure
 BLYNK_READ(V7) {
-  Blynk.virtualWrite(V7, bmpSensor.readSealevelPressure());
+  if (USE_BMP) {
+    Blynk.virtualWrite(V7, bmpSensor.readSealevelPressure());
+  } else {
+    Blynk.virtualWrite(V7, 0);
+  }
 }
 
 BLYNK_WRITE(V8) {
