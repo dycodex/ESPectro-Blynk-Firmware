@@ -11,14 +11,18 @@
 #include "AppConfig.h"
 #include "NeoPixelData.h"
 
-#define BLYNK_PRINT Serial
-#include <BlynkSimpleEsp8266.h>
+/* board configuration */
 
+#define USE_BMP false
 #define DEFAULT_ACCESSPOINT_NAME "ESPectroCoreWiFi-000"
 #define DEFAULT_ACCESSPOINT_PASS "12345678"
 
+/* end board configuration */
+
+#define BLYNK_PRINT Serial
+#include <BlynkSimpleEsp8266.h>
+
 #define CONNECTIO_PIN 10
-#define USE_BMP true
 
 Adafruit_BMP085 bmpSensor;
 // Ticker ticker;
