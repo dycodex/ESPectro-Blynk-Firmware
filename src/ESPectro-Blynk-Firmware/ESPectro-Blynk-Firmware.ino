@@ -16,6 +16,8 @@
 #define USE_BMP false
 #define DEFAULT_ACCESSPOINT_NAME "ESPectroCoreWiFi-000"
 #define DEFAULT_ACCESSPOINT_PASS "12345678"
+#define DEFAULT_BLYNKSERVER_HOST "cloud.makestro.com"
+#define DEFAULT_BLYNKSERVER_PORT 8442
 
 /* end board configuration */
 
@@ -25,7 +27,6 @@
 #define CONNECTIO_PIN 10
 
 Adafruit_BMP085 bmpSensor;
-// Ticker ticker;
 Ticker analogReadingTicker;
 WiFiManager manager;
 ESPectro board(ESPectro_V3);
@@ -49,12 +50,7 @@ void onAnalogSensorTriggered() {
   }
 }
 
-void onTickerTick() {
-  board.toggleLED();
-}
-
 void configModeCallback(WiFiManager *wifiManager) {
-  // ticker.attach(0.2, onTickerTick);
   board.fadeLED(800);
 }
 
@@ -64,14 +60,14 @@ void onButtonLongPressed() {
   delay(1000);
 
   appConfig.reset();
-  ESP.reset();
+  ESP.restart();
 }
 
 void setup() {
   board.turnOffLED();
   board.turnOffAllNeopixel();
 
-  delay(3000);
+  delay(2000);
   Serial.begin(9600);
 
   button.onLongPressed(onButtonLongPressed);
@@ -104,21 +100,20 @@ void setup() {
       Serial.println("[ERROR] Failed to configure connection");
       delay(500);
 
-      ESP.reset();
+      ESP.restart();
     }
   } else {
     if (!manager.autoConnect(DEFAULT_ACCESSPOINT_NAME, DEFAULT_ACCESSPOINT_PASS)) {
       Serial.println("[ERROR] Failed to configure connection");
       delay(500);
 
-      ESP.reset();
+      ESP.restart();
     }
   }
 
   delay(500);
 
   appConfig.saveConfig(WiFi.SSID().c_str(), WiFi.psk().c_str(), blynkTokenParam.getValue());
-  // ticker.detach();
   board.stopLEDAnimation();
   board.turnOffLED();
   analogReadingTicker.attach(0.1, onAnalogSensorTriggered);
@@ -128,8 +123,8 @@ void setup() {
   Serial.printf("PSK: %s\n", appConfig.getStoredConfig()->password);
 
   Blynk.config(appConfig.getStoredConfig()->blynkToken,
-    "cloud.makestro.com",
-    8442
+    DEFAULT_BLYNKSERVER_HOST,
+    DEFAULT_BLYNKSERVER_PORT
   );
 
   Blynk.connect();
